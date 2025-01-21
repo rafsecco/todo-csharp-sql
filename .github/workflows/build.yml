@@ -1,0 +1,29 @@
+name: Build Project
+
+on:
+  push:
+    branches:
+      - config-docker
+  pull_request:
+    branches:
+    - config-docker
+  workflow_dispatch:
+
+jobs:
+
+  versionameto:
+    runs-on: ubuntu-latest
+    name: Versionamento
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}   # checkout the correct branch name
+          fetch-depth: 0
+
+      - name: Run versionamento
+        uses: codacy/git-version@2.8.0
+        with:
+          release-branch: config-docker
+          prefix: v
