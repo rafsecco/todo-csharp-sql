@@ -39,3 +39,63 @@ jobs:
           git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
           git push --tags
         if: github.ref == 'refs/heads/main'
+
+  backend-build-and-test:
+    needs: versionameto
+    runs-on: ubuntu-latest
+    name: Backend Build and Test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+          cache: true
+          cache-dependency-path: ./src/**/packages.lock.json
+
+      - name: Restore packages
+        run: dotnet restore ./src/Todo.Api.sln
+
+      - name: Build
+        run: dotnet build ./src/Todo.Api.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test ./src/Todo.Api.sln --no-restore --no-build --configuration Release --logger trx --results-directory "TestResults"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results
+          path: TestResults
+
+  frontend-build-and-test:
+    if: false
+    needs: versionameto
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./src/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: ./src/web
+
+      - name: Build and Test
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: ./src/web/dist
+        if: github.ref == 'refs/heads/main'
