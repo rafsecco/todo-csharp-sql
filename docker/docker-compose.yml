@@ -56,3 +56,6 @@ volumes:
 # docker compose -p todo-project build --force-rm
 # docker compose -p todo-project up -d
 # docker compose -p todo-project down -v --rmi all
+
+# http://localhost:3100/api/index.html
+# http://localhost/
