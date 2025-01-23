@@ -1,0 +1,61 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: db_sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "my!secret-Passw0rd"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserverdata:/var/opt/mssql
+    # command: >
+    #   /bin/bash -c "
+    #   /opt/mssql/bin/sqlservr &
+    #   sleep 30s &&
+    #   /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P my!secret-Passw0rd -Q 'CREATE DATABASE TodoDb;'"
+
+  api:
+    build:
+      context: ../src/api
+      dockerfile: Dockerfile.api
+    container_name: api_todo
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_HTTP_PORTS=3100
+      #- ASPNETCORE_HTTPS_PORTS=443;3101
+      #- ASPNETCORE_URLS="http://*:3100;http://*:5000;https://*:3101"
+    ports:
+      - "3100:3100"
+      #- "5000:5000"
+      #- "3101:3101"
+    depends_on:
+      - sqlserver
+    # volumes:
+    #   - ./api:/app
+    # working_dir: /app
+    # command: ["dotnet", "run"]
+
+  web:
+    build:
+      context: ../src/web
+      dockerfile: Dockerfile
+    container_name: web_todo
+    environment:
+      - NODE_ENV=development
+      # - NODE_ENV=docker
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  sqlserverdata:
+
+# docker compose -p todo-project build --force-rm
+# docker compose -p todo-project up -d
+# docker compose -p todo-project down -v --rmi all
+
+# http://localhost:3100/api/index.html
+# http://localhost/

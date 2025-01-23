@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
+﻿using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace SimpleTodo.Api
 {
@@ -8,15 +9,21 @@ namespace SimpleTodo.Api
         {
             group.MapGet("/", GetLists);
             group.MapPost("/", CreateList);
-            group.MapGet("/{listId}", GetList);
-            group.MapPut("/{listId}", UpdateList);
-            group.MapDelete("/{listId}", DeleteList);
-            group.MapGet("/{listId}/items", GetListItems);
-            group.MapPost("/{listId}/items", CreateListItem);
-            group.MapGet("/{listId}/items/{itemId}", GetListItem);
-            group.MapPut("/{listId}/items/{itemId}", UpdateListItem);
-            group.MapDelete("/{listId}/items/{itemId}", DeleteListItem);
-            group.MapGet("/{listId}/state/{state}", GetListItemsByState);
+            group.MapGet("/{listId:guid}", GetList);
+            group.MapPut("/{listId:guid}", UpdateList);
+            group.MapDelete("/{listId:guid}", DeleteList);
+            group.MapGet("/{listId:guid}/items", GetListItems);
+            group.MapPost("/{listId:guid}/items", CreateListItem);
+            group.MapGet("/{listId:guid}/items/{itemId:guid}", GetListItem);
+            group.MapPut("/{listId:guid}/items/{itemId:guid}", UpdateListItem);
+            group.MapDelete("/{listId:guid}/items/{itemId:guid}", DeleteListItem);
+            group.MapGet("/{listId:guid}/state/{state}", GetListItemsByState);
+            return group;
+        }
+
+        public static RouteGroupBuilder MapVersionApi(this RouteGroupBuilder group)
+        {
+            group.MapGet("/", GetAppVersion);
             return group;
         }
 
@@ -155,8 +162,19 @@ namespace SimpleTodo.Api
 
             return TypedResults.Ok(await repository.GetListItemsByStateAsync(listId, state, skip, batchSize));
         }
+
+        public static IResult GetAppVersion(IConfiguration configuration)
+        {
+            var appVersionRaw = configuration["MY_APP_VERSION"] ?? "v0.0.1-rc";
+            var appVersion = Regex.Match(appVersionRaw, @"v[^:]+$").Value;
+
+            Console.WriteLine($"Framework Version: {appVersion}");
+
+            return TypedResults.Ok(new AppVersion(appVersion));
+        }
     }
 
     public record CreateUpdateTodoList(string name, string? description = null);
     public record CreateUpdateTodoItem(string name, string state, DateTimeOffset? dueDate, DateTimeOffset? completedDate, string? description = null);
+    public record AppVersion(string Value);
 }
