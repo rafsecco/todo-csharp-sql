@@ -3,15 +3,19 @@ name: Build Project
 on:
   push:
     branches:
-      - config-docker
+      - main
   pull_request:
     branches:
-    - config-docker
+    - main
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
 
-  versionameto:
+  versionamento:
     runs-on: ubuntu-latest
     name: Versionamento
 
@@ -26,7 +30,7 @@ jobs:
         uses: codacy/git-version@2.8.0
         id: version
         with:
-          release-branch: config-docker
+          release-branch: main
           prefix: v
 
       - name: Tag the repository
@@ -38,10 +42,9 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
           git push --tags
-        if: github.ref == 'refs/heads/main'
 
   backend-build-and-test:
-    needs: versionameto
+    needs: versionamento
     runs-on: ubuntu-latest
     name: Backend Build and Test
 
@@ -71,8 +74,30 @@ jobs:
           name: dotnet-test-results
           path: TestResults
 
+  backend-lint:
+    needs: backend-build-and-test
+    runs-on: ubuntu-latest
+    name: Backend Lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # super-linter needs the full git history to get the
+          # list of files that changed across commits
+          fetch-depth: 0
+
+      - name: Run Super-Linter
+        uses: github/super-linter@v6
+        env:
+          DEFAULT_BRANCH: "main"
+          VALIDATE_ALL_CODEBASE: "false"
+          VALIDATE_YAML: "true"
+          VALIDATE_CSHARP: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   frontend-build-and-test:
-    needs: versionameto
+    needs: versionamento
     runs-on: ubuntu-latest
     name: Frontend Build and Test
     defaults:
@@ -86,7 +111,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: "20"
           cache: npm
           cache-dependency-path: ./src/web
 
@@ -94,9 +119,32 @@ jobs:
         run: npm ci
 
       - name: Test
-        run: |
-          npm run lint
+        run: npm run lint
 
       - name: Build
-        run: |
-          npm run build
+        run: npm run build
+
+  frontend-lint:
+    needs: versionamento
+    runs-on: ubuntu-latest
+    name: Frontend Lint
+    defaults:
+      run:
+        working-directory: ./src/web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ./src/web
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
