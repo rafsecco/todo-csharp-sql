@@ -9,6 +9,10 @@ on:
     - main
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   versionamento:
@@ -71,6 +75,27 @@ jobs:
           name: dotnet-test-results
           path: TestResults
 
+  backend-lint:
+    needs: versionamento
+    runs-on: ubuntu-latest
+    name: Backend Lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # super-linter needs the full history to get the list of files that changed across commits
+          fetch-depth: 0
+
+      - name: Super-linter
+        uses: github/super-linter@v6
+        with:
+          DEFAULT_BRANCH: main
+          VALIDATE_ALL_CODEBASE: "false"
+          VALIDATE_YAML: "true"
+          VALIDATE_CHARP: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   frontend-build-and-test:
     needs: versionamento
     runs-on: ubuntu-latest
@@ -102,8 +127,7 @@ jobs:
           npm run build
 
   frontend-lint:
-    if: false
-    needs: [versionamento, frontend-build-and-test]
+    needs: versionamento
     runs-on: ubuntu-latest
     name: Frontend Lint
     defaults:
