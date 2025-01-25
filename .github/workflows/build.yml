@@ -85,13 +85,13 @@ jobs:
       - name: Test
         run: |
           dotnet test --no-build --no-restore ./src/Todo.Api.sln --configuration Release --logger trx --results-directory "TestResults"
-        if: github.ref != 'refs/heads/main'
+        # if: github.ref != 'refs/heads/main'
 
       - uses: actions/upload-artifact@v4
         with:
           name: dotnet-test-results
           path: TestResults
-        if: github.ref != 'refs/heads/main'
+        # if: github.ref != 'refs/heads/main'
 
       - name: Publish
         run: dotnet publish ./src/api/Todo.Api.csproj --no-restore --no-build --configuration Release --output ./publish
@@ -128,7 +128,7 @@ jobs:
           VALIDATE_YAML: "true"
           VALIDATE_CSHARP: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    if: github.ref != 'refs/heads/main'
+    # if: github.ref != 'refs/heads/main'
 
   frontend-build-and-test:
     needs: versionamento
@@ -156,7 +156,7 @@ jobs:
       - name: Test
         run: |
           npm run lint
-        if: github.ref != 'refs/heads/main'
+        # if: github.ref != 'refs/heads/main'
 
       - name: Build
         run: |
@@ -193,7 +193,7 @@ jobs:
       - name: Lint
         run: |
           npm run lint
-    if: github.ref != 'refs/heads/main'
+    # if: github.ref != 'refs/heads/main'
 
   dependency-check:
     name: Dependency Check
@@ -208,7 +208,7 @@ jobs:
       - uses: actions/dependency-review-action@v4
         with:
           comment-summary-in-pr: always
-    if: github.ref != 'refs/heads/main'
+    # if: github.ref != 'refs/heads/main'
 
   code-security-check:
     name: Code Security Check
@@ -243,7 +243,7 @@ jobs:
         name: Analyze code - ${{ matrix.name }}
         with:
           category: "/language:${{ matrix.language }}"
-    if: github.ref != 'refs/heads/main'
+    # if: github.ref != 'refs/heads/main'
 
   build-docker-image:
     name: Packing and Publish
@@ -268,7 +268,7 @@ jobs:
       - name: Tag Docker image as Latest
         run: |
           docker tag ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} ${{ vars.DOCKERHUB_REPOSITORY }}:latest
-        if: github.ref == 'refs/heads/main'
+        # if: github.ref == 'refs/heads/main'
 
       - name: Docker Login
         uses: docker/login-action@v3
