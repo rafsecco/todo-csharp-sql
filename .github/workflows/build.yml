@@ -148,3 +148,12 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+  dependency-check:
+    needs: versionamento
+    runs-on: ubuntu-latest
+    name: Dependency Check
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
