@@ -166,35 +166,38 @@ jobs:
           head-ref: main
 
   code-security-check:
+    name: Code Security Check
     needs: versionamento
     runs-on: ubuntu-latest
-    name: Code Security Check
     permissions:
       security-events: write
       packages: read
       actions: read
       contents: read
 
+    strategy:
+      matrix:
+        include:
+          - name: Backend
+            language: csharp
+            build-mode: autobuild
+          - name: Frontend
+            language: javascript
+            build-mode: none
+
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
-        name: Initialize CodeQL - Backend
-        with:
-          languages: csharp
-
-      - uses: github/codeql-action/analyze@v3
-        name: Analyze code - Backend
-        with:
-          category: "/language:csharp"
 
       - uses: github/codeql-action/init@v3
-        name: Initialize CodeQL - Frontend
+        name: Initialize CodeQL - ${{ matrix.name }}
         with:
-          languages: javascript,typescript
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
 
       - uses: github/codeql-action/analyze@v3
-        name: Analyze code - Frontend
+        name: Analyze code - ${{ matrix.name }}
         with:
-          category: "/language:javascript,typescript"
+          category: "/language:${{ matrix.language }}"
+    if: github.ref != 'refs/heads/main'
 
 
