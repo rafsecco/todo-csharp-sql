@@ -6,15 +6,16 @@ on:
     types:
       - completed
 
-env:
-  DOCKER_IMAGE_REGISTRY: "${{ vars.DOCKER_CONTAINER_REGISTRY }}/${{ vars.DOCKERHUB_REPOSITORY}}:"
+permissions:
+  contents: read
+  actions: write
 
 jobs:
 
   versionamento:
     runs-on: ubuntu-latest
     outputs:
-      versao: ${{ steps.versionamento.outputs.versao }}
+      versao: ${{ steps.get-version.outputs.versao }}
       docker-container-registry: ${{ steps.docker-image-registry.outputs.docker-container-registry }}
 
     steps:
@@ -37,28 +38,34 @@ jobs:
         run: |
           echo "docker-container-registry=${{ vars.DOCKER_CONTAINER_REGISTRY }}/${{ vars.DOCKERHUB_REPOSITORY }}:${{ steps.get-version.outputs.versao }}" >> "$GITHUB_OUTPUT"
 
+
   deploy-to-google-cloud:
-    name: Deploy to google Cloud
+    name: Deploy to Google Cloud
     needs: versionamento
     runs-on: ubuntu-latest
-    environment: staging
     permissions:
       id-token: write
       contents: read
+    strategy:
+      matrix:
+        environment: [staging, production]
+    environment: ${{ matrix.environment }}
 
     steps:
-      - uses: actions/checkout@v4
-
       - uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
           project_id: ${{ vars.GCP_PROJECT_ID }}
 
-      - uses: 'google-github-actions/deploy-cloudrun@v2'
+      - uses: google-github-actions/deploy-cloudrun@v2
+        id: deploy-to-cloud-run
         with:
           project_id: ${{ vars.GCP_PROJECT_ID }}
           service: ${{ vars.GCP_RUN_SERVICE }}
           image: ${{ needs.versionamento.outputs.docker-container-registry }}
           region: ${{ vars.GCP_RUN_REGION }}
 
-
+      - name: 'Test the deployment'
+        run: |-
+          echo "::notice:: ${{ steps.deploy-to-cloud-run.outputs.url }}/index.html"
+          curl -I --fail "${{ steps.deploy-to-cloud-run.outputs.url }}/index.html"
