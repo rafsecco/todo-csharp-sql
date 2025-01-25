@@ -153,7 +153,12 @@ jobs:
     needs: versionamento
     runs-on: ubuntu-latest
     name: Dependency Check
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
       - uses: actions/dependency-review-action@v4
+        with:
+          comment-summary-in-pr: always
