@@ -45,6 +45,17 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
           git push --tags
+        if: github.ref == 'refs/heads/main'
+
+      - name: Create file version
+        run: echo ${{ steps.version.outputs.version }} > versao.txt
+        if: github.ref == 'refs/heads/main'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: versao
+          path: versao.txt
+        if: github.ref == 'refs/heads/main'
 
   backend-build-and-test:
     needs: versionamento
@@ -235,10 +246,10 @@ jobs:
           merge-multiple: false
 
       - name: Build Docker image
-        run: docker build -t ${{ vars.DOCKERHUB_REPOSITORY }}/todo-app:${{ env.version }} .
+        run: docker build -t ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} .
 
       - name: Tag Docker image as Latest
-        run: docker tag ${{ vars.DOCKERHUB_REPOSITORY }}/todo-app:${{ env.version }} ${{ vars.DOCKERHUB_REPOSITORY }}/todo-app:latest
+        run: docker tag ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} ${{ vars.DOCKERHUB_REPOSITORY }}:latest
         if: github.ref == 'refs/heads/main'
 
       - name: Docker Login
@@ -248,4 +259,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker Push
-        run: docker push --all-tags ${{ vars.DOCKERHUB_REPOSITORY }}/todo-app
+        run: docker push --all-tags ${{ vars.DOCKERHUB_REPOSITORY }}
