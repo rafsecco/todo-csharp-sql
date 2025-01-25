@@ -1,0 +1,24 @@
+name: Deploy Application
+
+on:
+  workflow_run:
+    workflows: ["Build Project"]
+    types:
+      - completed
+
+jobs:
+  deploy-to-google-cloud:
+    name: Deploy to google Cloud
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
