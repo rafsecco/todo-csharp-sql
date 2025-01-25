@@ -75,7 +75,7 @@ jobs:
           path: TestResults
 
   backend-lint:
-    needs: backend-build-and-test
+    needs: versionamento
     runs-on: ubuntu-latest
     name: Backend Lint
 
@@ -148,3 +148,17 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+  dependency-check:
+    needs: versionamento
+    runs-on: ubuntu-latest
+    name: Dependency Check
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          comment-summary-in-pr: always
