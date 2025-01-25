@@ -19,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     name: Versionamento
 
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -74,6 +77,15 @@ jobs:
           name: dotnet-test-results
           path: TestResults
 
+      - name: Publish
+        run: dotnet publish ./src/api/Todo.Api.csproj --no-restore --no-build --configuration Release --output ./publish
+
+      - name: Upload dotnet artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: api
+          path: ./publish
+
   backend-lint:
     needs: versionamento
     runs-on: ubuntu-latest
@@ -123,6 +135,11 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: ./src/web/dist
 
   frontend-lint:
     needs: versionamento
@@ -200,4 +217,23 @@ jobs:
           category: "/language:${{ matrix.language }}"
     if: github.ref != 'refs/heads/main'
 
+  build-docker-image:
+    needs: [versionamento, backend-build-and-test, frontend-build-and-test]
+    runs-on: ubuntu-latest
+    name: Build Docker Image
+
+    env:
+      version: ${{ needs.versionamento.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: app
+          merge-multiple: false
+
+      - name: Build Docker image
+        run: docker build -t todo-app:${{ env.version }} .
 
