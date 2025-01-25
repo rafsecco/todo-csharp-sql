@@ -6,7 +6,7 @@ on:
       - main
   pull_request:
     branches:
-    - main
+      - main
   workflow_dispatch:
 
 concurrency:
@@ -14,10 +14,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   versionamento:
     runs-on: ubuntu-latest
     name: Versionamento
+    permissions:
+      contents: write
 
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -26,21 +27,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}   # checkout the correct branch name
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
-      - name: Run versionamento
-        uses: codacy/git-version@2.8.0
+      - uses: codacy/git-version@2.8.0
         id: version
         with:
           release-branch: main
           prefix: v
 
-      - name: Tag the repository
+      - name: Tag do repositorio
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "::notice:: ${{ steps.version.outputs.version }} "
+          echo "::notice:: ${{ steps.version.outputs.version }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
           git config --global user.name "${{ github.actor }}"
           git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
@@ -48,7 +48,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
 
       - name: Create file version
-        run: echo ${{ steps.version.outputs.version }} > versao.txt
+        run: |
+          echo ${{ steps.version.outputs.version }} > versao.txt
         if: github.ref == 'refs/heads/main'
 
       - uses: actions/upload-artifact@v4
@@ -69,27 +70,37 @@ jobs:
       - name: Setup .NET Core
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.x
+          dotnet-version: "8.x"
           cache: true
           cache-dependency-path: ./src/**/packages.lock.json
 
-      - name: Restore packages
-        run: dotnet restore ./src/Todo.Api.sln
+      - name: Restore
+        run: |
+          dotnet restore ./src/Todo.Api.sln
 
       - name: Build
-        run: dotnet build ./src/Todo.Api.sln --no-restore --configuration Release
+        run: |
+          dotnet build --no-restore --configuration Release ./src/Todo.Api.sln
 
       - name: Test
-        run: dotnet test ./src/Todo.Api.sln --no-restore --no-build --configuration Release --logger trx --results-directory "TestResults"
+        run: |
+          dotnet test --no-build --no-restore ./src/Todo.Api.sln --configuration Release --logger trx --results-directory "TestResults"
+        if: github.ref != 'refs/heads/main'
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: dotnet-test-results
           path: TestResults
+        if: github.ref != 'refs/heads/main'
 
       - name: Publish
         run: dotnet publish ./src/api/Todo.Api.csproj --no-restore --no-build --configuration Release --output ./publish
+
+      - name: Tag published version
+        uses: restackio/update-json-file-action@2.1
+        with:
+          file: ./publish/appsettings.json
+          fields: "{\"MY_APP_VERSION\": \"${{ needs.versionamento.outputs.version }}\"}"
 
       - name: Upload dotnet artifacts
         uses: actions/upload-artifact@v4
@@ -110,14 +121,14 @@ jobs:
           # list of files that changed across commits
           fetch-depth: 0
 
-      - name: Run Super-Linter
-        uses: github/super-linter@v6
+      - uses: github/super-linter@v6
         env:
           DEFAULT_BRANCH: "main"
           VALIDATE_ALL_CODEBASE: "false"
           VALIDATE_YAML: "true"
           VALIDATE_CSHARP: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    if: github.ref != 'refs/heads/main'
 
   frontend-build-and-test:
     needs: versionamento
@@ -131,7 +142,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -139,13 +150,17 @@ jobs:
           cache-dependency-path: ./src/web
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
 
       - name: Test
-        run: npm run lint
+        run: |
+          npm run lint
+        if: github.ref != 'refs/heads/main'
 
       - name: Build
-        run: npm run build
+        run: |
+          npm run build
 
       - uses: actions/upload-artifact@v4
         with:
@@ -164,7 +179,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -172,26 +187,28 @@ jobs:
           cache-dependency-path: ./src/web
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
 
       - name: Lint
-        run: npm run lint
+        run: |
+          npm run lint
+    if: github.ref != 'refs/heads/main'
 
   dependency-check:
+    name: Dependency Check
     needs: versionamento
     runs-on: ubuntu-latest
-    name: Dependency Check
     permissions:
       contents: read
       pull-requests: write
-
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/dependency-review-action@v4
         with:
           comment-summary-in-pr: always
-          base-ref: main
-          head-ref: main
+    if: github.ref != 'refs/heads/main'
 
   code-security-check:
     name: Code Security Check
@@ -229,16 +246,15 @@ jobs:
     if: github.ref != 'refs/heads/main'
 
   build-docker-image:
+    name: Packing and Publish
     needs: [versionamento, backend-build-and-test, frontend-build-and-test]
     runs-on: ubuntu-latest
-    name: Build Docker Image
 
     env:
       version: ${{ needs.versionamento.outputs.version }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
         with:
@@ -246,10 +262,12 @@ jobs:
           merge-multiple: false
 
       - name: Build Docker image
-        run: docker build -t ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} .
+        run: |
+          docker build -t ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} .
 
       - name: Tag Docker image as Latest
-        run: docker tag ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} ${{ vars.DOCKERHUB_REPOSITORY }}:latest
+        run: |
+          docker tag ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} ${{ vars.DOCKERHUB_REPOSITORY }}:latest
         if: github.ref == 'refs/heads/main'
 
       - name: Docker Login
@@ -259,4 +277,5 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker Push
-        run: docker push --all-tags ${{ vars.DOCKERHUB_REPOSITORY }}
+        run: |
+          docker push --all-tags ${{ vars.DOCKERHUB_REPOSITORY }}
