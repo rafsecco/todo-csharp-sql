@@ -1,0 +1,58 @@
+{
+	"containerDefinitions": [
+			{
+					"name": "todo-app",
+					"image": "docker.io/rafsecco/todo-app:latest",
+					"cpu": 0,
+					"portMappings": [
+							{
+									"name": "todo-app-80-tcp",
+									"containerPort": 80,
+									"hostPort": 80,
+									"protocol": "tcp",
+									"appProtocol": "http"
+							},
+							{
+									"name": "todo-app-8080-tcp",
+									"containerPort": 8080,
+									"hostPort": 8080,
+									"protocol": "tcp",
+									"appProtocol": "http"
+							}
+					],
+					"essential": true,
+					"environmentFiles": [],
+					"mountPoints": [],
+					"volumesFrom": [],
+					"ulimits": [],
+					"logConfiguration": {
+							"logDriver": "awslogs",
+							"options": {
+									"awslogs-group": "/ecs/todo-app-task-definition",
+									"mode": "non-blocking",
+									"awslogs-create-group": "true",
+									"max-buffer-size": "25m",
+									"awslogs-region": "eu-west-1",
+									"awslogs-stream-prefix": "ecs"
+							},
+							"secretOptions": []
+					},
+					"systemControls": []
+			}
+	],
+	"family": "todo-app-task-definition",
+	"executionRoleArn": "arn:aws:iam::911167883478:role/ecsTaskExecutionRole",
+	"networkMode": "awsvpc",
+	"volumes": [],
+	"placementConstraints": [],
+	"requiresCompatibilities": [
+			"FARGATE"
+	],
+	"cpu": "512",
+	"memory": "1024",
+	"runtimePlatform": {
+			"cpuArchitecture": "X86_64",
+			"operatingSystemFamily": "LINUX"
+	},
+	"tags": []
+}

@@ -38,7 +38,6 @@ jobs:
         run: |
           echo "docker-container-registry=${{ vars.DOCKER_CONTAINER_REGISTRY }}/${{ vars.DOCKERHUB_REPOSITORY }}:${{ steps.get-version.outputs.versao }}" >> "$GITHUB_OUTPUT"
 
-
   deploy-to-google-cloud:
     name: Deploy to Google Cloud
     needs: versionamento
@@ -97,3 +96,50 @@ jobs:
         run: |-
           echo "::notice:: ${{ steps.deploy-to-webapp.outputs.webapp-url }}/index.html"
           curl -I --fail "${{ steps.deploy-to-webapp.outputs.webapp-url }}/index.html"
+
+  deploy-to-amazon-aws:
+    name: Deploy to Amazon AWS
+    needs: versionamento
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        environment: [staging, production]
+    environment: ${{ matrix.environment }}
+    env:
+      TASK_DEFINITION_PATH: ./infra/aws/amazon-ecs-task-definition.json
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Update the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.TASK_DEFINITION_PATH }}
+          container-name: ${{ vars.AWS_ECS_CONTAINER_NAME }}
+          image: ${{ needs.versionamento.outputs.docker-container-registry }}
+          environment-variables: |
+            SQL_CONNECTION_STRING_KEY=ConnectionStrings:TodoDb
+            ConnectionStrings:TodoDb=${{ secrets.AWS_CONNSTR }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          cluster: ${{ vars.AWS_ECS_CLUSTER }}
+          service: ${{ vars.AWS_ECS_SERVICE }}
+
+      - name: 'Test the deployment'
+        run: |-
+          echo "::notice:: ${{ vars.AWS_ECS_LOAD_BALANCER_ENDPOINT }}/index.html"
+          curl -I --fail "${{ vars.AWS_ECS_LOAD_BALANCER_ENDPOINT }}/index.html"
