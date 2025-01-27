@@ -48,8 +48,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        # environment: [staging, production]
-        environment: [staging]
+        environment: [staging, production]
     environment: ${{ matrix.environment }}
 
     steps:
